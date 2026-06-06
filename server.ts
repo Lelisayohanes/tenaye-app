@@ -1,7 +1,6 @@
 import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
-import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -11,26 +10,13 @@ const PORT = 3000;
 
 app.use(express.json());
 
-// Initialize Gemini Client
-let ai: GoogleGenAI | null = null;
-const API_KEY = process.env.GEMINI_API_KEY;
+// Initialize Groq Client
+const API_KEY = process.env.GROQ_API_KEY;
 
 if (API_KEY) {
-  try {
-    ai = new GoogleGenAI({
-      apiKey: API_KEY,
-      httpOptions: {
-        headers: {
-          'User-Agent': 'aistudio-build',
-        },
-      },
-    });
-    console.log("Successfully initialized Gemini API client.");
-  } catch (err) {
-    console.error("Failed to initialize GoogleGenAI:", err);
-  }
+  console.log("Successfully initialized Groq API client.");
 } else {
-  console.warn("GEMINI_API_KEY not found in environment. Using smart clinical fallback engine.");
+  console.warn("GROQ_API_KEY not found in environment. Using smart clinical fallback engine.");
 }
 
 // Helper to provide robust fallback recommendations when Gemini key is absent or fails
@@ -163,8 +149,8 @@ app.post("/api/recommend", async (req, res) => {
 
   const allergyList = selectedAllergies || [];
 
-  // Generate dynamic recommendation if Gemini is active
-  if (ai) {
+  // Generate dynamic recommendation if Groq is active
+  if (API_KEY) {
     try {
       const prompt = `A patient with the following health criteria has requested a safe, curated, and highly specific Ethiopian meal recommendation:
 - Health Conditions: ${conditionsList.length > 0 ? conditionsList.join(", ") : "Generally Healthy (No major conditions)"}
@@ -179,64 +165,62 @@ Consider these medical restrictions:
 - If Pregnant: Strictly prohibit raw meat ("Kitfo") and ensure all meat dishes are specified as "Well-Done". Recommend high-iron, cooked beans/peas like "Buticha" or "Kik Alicha".
 - If Allergens (Gluten, Dairy, Eggs) are present: Exclude foods containing that allergen (e.g. Dairy allergy excludes cottage cheese "Ayib", spiced raw butter "Kibe" inside "Kitfo", "Firfir" or "Doro Wat". Gluten allergy excludes "Sambusa" and normal wheat blends).
 
-Return the structured response.`;
+Return the response in JSON format matching this schema:
+{
+  "activeProfileText": "A summary line representing active conditions (e.g., 'Diabetic Profile Active', 'Gestational Care & Gluten Avoidance Warning')",
+  "analysis": "A natural, supportive, clinical 2-3 sentence overview of the recommendation.",
+  "suggestedStarter": {
+    "name": "Dish name (e.g., Ayib be Gomen or Buticha)",
+    "category": "Starters",
+    "description": "Short appetizing description",
+    "tags": ["Tag1", "Tag2"],
+    "iconType": "Must be one of: leaf, meat, soup, cake, rice, warning"
+  },
+  "suggestedMain": {
+    "name": "Dish name (e.g., Tibs (grilled))",
+    "category": "Mains",
+    "description": "Short main course description",
+    "tags": ["Tag1", "Tag2"],
+    "iconType": "Must be one of: leaf, meat, soup, cake, rice, warning"
+  },
+  "reminder": "A crucial 1-sentence warning starting with 'Remember:' emphasizing key guardrails, e.g., 'Remember: Limit Injera to 1 piece to maintain optimal glycemic control.'"
+}`;
 
-      const geminiResponse = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
-        contents: prompt,
-        config: {
-          systemInstruction: "You are a professional clinical dietitian specializing in traditional Ethiopian cuisine. Provide objective, precise, structured medical-dietary menu advice.",
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              activeProfileText: {
-                type: Type.STRING,
-                description: "A summary line representing active conditions (e.g., 'Diabetic Profile Active', 'Gestational Care & Gluten Avoidance Warning'). Match the UI screenshot formats."
-              },
-              analysis: {
-                type: Type.STRING,
-                description: 'A natural, supportive, clinical 2-3 sentence overview of the recommendation. E.g. "Start your meal with Ayib be Gomen — it\'s low-carb and gentle on blood sugar..."'
-              },
-              suggestedStarter: {
-                type: Type.OBJECT,
-                properties: {
-                  name: { type: Type.STRING },
-                  category: { type: Type.STRING, description: "Must be 'Starters'" },
-                  description: { type: Type.STRING },
-                  tags: { type: Type.ARRAY, items: { type: Type.STRING } },
-                  iconType: { type: Type.STRING, description: "Must be one of: leaf, meat, soup, cake, rice, warning" }
-                },
-                required: ["name", "category", "description", "tags", "iconType"]
-              },
-              suggestedMain: {
-                type: Type.OBJECT,
-                properties: {
-                  name: { type: Type.STRING },
-                  category: { type: Type.STRING, description: "Must be 'Mains'" },
-                  description: { type: Type.STRING },
-                  tags: { type: Type.ARRAY, items: { type: Type.STRING } },
-                  iconType: { type: Type.STRING, description: "Must be one of: leaf, meat, soup, cake, rice, warning" }
-                },
-                required: ["name", "category", "description", "tags", "iconType"]
-              },
-              reminder: {
-                type: Type.STRING,
-                description: "A crucial 1-sentence warning starting with 'Remember:' emphasizing key guardrails, e.g., 'Remember: Limit Injera to 1 piece to maintain optimal glycemic control.'"
-              }
+      const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: "llama-3.3-70b-versatile",
+          messages: [
+            {
+              role: "system",
+              content: "You are a professional clinical dietitian specializing in traditional Ethiopian cuisine. Provide objective, precise, structured medical-dietary menu advice.",
             },
-            required: ["activeProfileText", "analysis", "suggestedStarter", "suggestedMain", "reminder"]
-          }
-        }
+            {
+              role: "user",
+              content: prompt,
+            },
+          ],
+          response_format: { type: "json_object" },
+          temperature: 0.2,
+        }),
       });
 
-      const responseText = geminiResponse.text;
-      if (responseText) {
-        const parsed = JSON.parse(responseText.trim());
+      if (!response.ok) {
+        throw new Error(`Groq API returned error status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const content = data.choices?.[0]?.message?.content;
+      if (content) {
+        const parsed = JSON.parse(content.trim());
         return res.json(parsed);
       }
     } catch (e) {
-      console.error("Gemini completion failed, falling back to static logic:", e);
+      console.error("Groq completion failed, falling back to static logic:", e);
     }
   }
 

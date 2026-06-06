@@ -1,0 +1,38 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Session {
+  id                Int      @id @default(autoincrement())
+  sessionId         String   @unique
+  hasDiabetes       Boolean  @default(false)
+  hasHypertension   Boolean  @default(false)
+  isPregnant        Boolean  @default(false)
+  allergies         String
+  expiresAt         DateTime
+  createdAt         DateTime @default(now())
+}
+
+model Dish {
+  id                  Int      @id @default(autoincrement())
+  nameEn              String
+  nameAm              String
+  glycemicIndex       Int
+  carbsG              Float
+  sodiumMg            Float
+  safeDiabetic        Boolean
+  safeHypertension    Boolean
+  category            String
+  containsAllergens   String   @default("")
+  isRaw               Boolean  @default(false)
+  isDairyProduct      Boolean  @default(false)
+  description         String   @default("")
+  tags                String   @default("")
+}
