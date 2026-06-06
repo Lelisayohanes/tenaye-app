@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { evaluateDish } from '@/lib/nutrition';
+import { Dish } from '@prisma/client';
 
 export async function GET(req: NextRequest) {
   try {
@@ -32,8 +33,8 @@ export async function GET(req: NextRequest) {
     const dishes = await prisma.dish.findMany();
 
     // Evaluate suitability
-    const evaluated = dishes.map((dish) => {
-      const { status, reason } = evaluateDish(dish, session);
+    const evaluated = dishes.map((dish: Dish) => {
+      const { status, reason } = evaluateDish(dish, session as any);
       return {
         name: dish.nameEn,
         status,
