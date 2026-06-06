@@ -218,7 +218,7 @@ export default function App() {
               <Menu className="w-5 h-5" />
             </button>
             <span className="text-xl font-medium tracking-tight flex items-center gap-2">
-              Tenaye ተናዬ
+              Tenaye ጤናዬ
               <span className="text-xs font-mono bg-white/20 px-2 py-0.5 rounded-full text-[#86f8c9]">Beta</span>
             </span>
           </div>
@@ -279,7 +279,7 @@ export default function App() {
         )}
         
         <h1 className="text-lg font-medium text-center flex-1">
-          {page === 'profile' && "Tenaye ተናዬ"}
+          {page === 'profile' && "Tenaye ጤናዬ"}
           {page === 'menu' && "Your safe menu"}
           {page === 'insight' && (loading ? "Analyzing..." : "Your meal plan")}
         </h1>
@@ -314,7 +314,7 @@ export default function App() {
             >
               {/* Header Title Section (Mobile look inside card) */}
               <div className="bg-[#1D9E75] text-white p-6 rounded-2xl text-center md:hidden shadow-sm">
-                <h2 className="text-2xl font-semibold mb-1">Tenaye ተናዬ</h2>
+                <h2 className="text-2xl font-semibold mb-1">Tenaye ጤናዬ</h2>
                 <p className="text-sm opacity-90">Personalized menu for your health</p>
               </div>
 
