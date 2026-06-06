@@ -22,96 +22,158 @@ export interface GroqRecommendation {
 }
 
 export function getGroqFallback(session: Session, safeDishes: Dish[]): GroqRecommendation {
-  // Base default healthy option
-  let activeProfileText = "Healthy Balance Menu";
-  let analysis = "Based on your clinical selections, a balanced, highly digestible menu is recommended. Start your experience with Buticha to steady initial glucose response, and enjoy Kik Alicha as your main to receive ample fibers and slow-release energy.";
-  let starter = {
-    name: "Buticha",
-    category: "Starters",
-    description: "Cold chickpea puree whip with garlic, onions, and jalapeños. Perfect low-GI appetizer.",
-    tags: ["Vegan", "Low GI"],
-    iconType: "leaf" as const
-  };
-  let main = {
-    name: "Kik Alicha",
-    category: "Sides",
-    description: "Yellow split pea stew simmered with chopped garlic, onions, turmeric. Highly soluble fibers.",
-    tags: ["High Fiber", "Vegan"],
-    iconType: "soup" as const
-  };
-  let reminder = "Remember: Select pure teff Injera to optimize digestion and blood absorption.";
-
   const allergies = session.allergies ? session.allergies.split(',').map(a => a.trim().toLowerCase()) : [];
   const hasDairy = allergies.includes('dairy');
   const hasGluten = allergies.includes('gluten');
 
-  if (session.hasDiabetes) {
-    activeProfileText = "Diabetic Profile Active" + (hasDairy ? " + Dairy Avoidance" : "");
-    analysis = "Start your meal with Ayib be Gomen — it's low-carb and gentle on blood sugar. For your main, Tibs (grilled) is your best option today. Avoid the Firfir — its glycemic load is too high for a diabetic profile. Limit injera to one piece if you include it.";
+  // Determine active profile description
+  const profiles: string[] = [];
+  if (session.hasDiabetes) profiles.push("Diabetes Care");
+  if (session.hasHypertension) profiles.push("Hypertension Control");
+  if (session.isPregnant) profiles.push("Gestational Safety");
+  if (hasDairy) profiles.push("Dairy Avoidance");
+  if (hasGluten) profiles.push("Gluten Avoidance");
+
+  const activeProfileText = profiles.length > 0 ? `${profiles.join(" + ")} Active` : "Healthy Balance Menu";
+
+  // Base suggestions
+  let starter: {
+    name: string;
+    category: string;
+    description: string;
+    tags: string[];
+    iconType: "leaf" | "meat" | "soup" | "cake" | "rice" | "warning";
+  } = {
+    name: "Buticha",
+    category: "Starters",
+    description: "Cold chickpea puree whip with garlic, onions, and jalapeños. Perfect low-GI appetizer.",
+    tags: ["Vegan", "Low GI"],
+    iconType: "leaf"
+  };
+
+  let main: {
+    name: string;
+    category: string;
+    description: string;
+    tags: string[];
+    iconType: "leaf" | "meat" | "soup" | "cake" | "rice" | "warning";
+  } = {
+    name: "Kik Alicha",
+    category: "Sides",
+    description: "Yellow split pea stew simmered with chopped garlic, onions, turmeric. Highly soluble fibers.",
+    tags: ["High Fiber", "Vegan"],
+    iconType: "soup"
+  };
+
+  let analysis = "Based on your clinical selections, a balanced, highly digestible menu is recommended. Start your experience with Buticha to steady initial glucose response, and enjoy Kik Alicha as your main to receive ample fibers and slow-release energy.";
+  let reminder = "Remember: Select pure teff Injera to optimize digestion and blood absorption.";
+
+  // Medical Overrides (Combining rules seamlessly)
+  if (session.isPregnant) {
     starter = {
-      name: hasDairy ? "Buticha" : "Ayib be Gomen",
-      category: "Starters",
-      description: hasDairy
-        ? "Plant-based chickpea puree whipped with cold water, garlic, and greens. Low GI."
-        : "Low-carb starter of crumbled fresh cottage cheese served with collard greens.",
-      tags: ["High Fiber", "Low GI"],
-      iconType: "leaf" as const
-    };
-    main = {
-      name: "Tibs (grilled)",
-      category: "Mains",
-      description: "Lean sautéed beef cubes grilled with onions and jalapeños. Stable glucose, high protein.",
-      tags: ["High Protein", "Low GI"],
-      iconType: "meat" as const
-    };
-    reminder = "Remember: Limit Injera to 1 piece to maintain optimal glycemic control.";
-  } else if (session.hasHypertension) {
-    activeProfileText = "Hypertension Profile Active";
-    analysis = "Focus on extremely low sodium and high potassium options. Start with Gomen which naturally supports arterial elasticity. For the main, choose mild, slow-simmered Kik Alicha instead of heavily salted meats.";
-    starter = {
-      name: "Gomen",
-      category: "Sides",
-      description: "Slow-simmered green collard leaves in virgin olive oil and crushed garlic. Absolutely minimal salt added.",
-      tags: ["Low Sodium", "Heart Healthy"],
-      iconType: "leaf" as const
-    };
-    main = {
-      name: "Kik Alicha",
-      category: "Sides",
-      description: "Mild split-pea broth stew lightly infused with natural turmeric. Unsalted, high potassium.",
-      tags: ["Sodium Free", "High Fiber"],
-      iconType: "soup" as const
-    };
-    reminder = "Remember: Ask for your meals to be produced completely 'un-salted' to respect arterial goals.";
-  } else if (session.isPregnant) {
-    activeProfileText = "Gestational Care Active";
-    analysis = "Ensure high folate, clean iron, and fully pasteurized, cooked meals. Start with Buticha for plant protein and high natural folate. For your main, choose Tibs (grilled) well-done - make sure it is completely cooked to eliminate food risks.";
-    starter = {
-      name: "Buticha",
+      name: "Buticha (Warm)",
       category: "Starters",
       description: "Creamy chickpea whip served at warm temperature. Fully cooked and safe source of iron and natural folates.",
       tags: ["Folate Source", "Fully Pasteurized"],
-      iconType: "soup" as const
+      iconType: "soup"
     };
     main = {
-      name: "Tibs (grilled)",
+      name: "Tibs (Well-Done)",
       category: "Mains",
       description: "Grilled lean steak bites thoroughly cooked to well-done. Zero raw surface risks for embryonic support.",
       tags: ["Well-Done Cooked", "Iron Rich"],
-      iconType: "meat" as const
+      iconType: "meat"
     };
+    analysis = "Ensure high folate, clean iron, and fully pasteurized, cooked meals. Warm Buticha provides plant-based protein and folates. Fully cooked well-done Tibs eliminates embryonic hazards.";
     reminder = "Remember: Strictly avoid raw meat like Kitfo or rare Tibs during gestational weeks.";
+  }
+
+  if (session.hasDiabetes) {
+    if (session.isPregnant) {
+      analysis = "Prioritize glycemic control and gestational safety. Enjoy Warm Buticha to cushion insulin rise, and Well-Done Tibs for stable low-carb protein without raw meat risks.";
+      reminder = "Remember: Limit Injera portion size and strictly avoid raw beef (Kitfo) or sweet honey Tej.";
+    } else {
+      starter = {
+        name: hasDairy ? "Buticha" : "Ayib be Gomen",
+        category: "Starters",
+        description: hasDairy 
+          ? "Plant-based chickpea puree whipped with cold water, garlic, and greens. Low GI." 
+          : "Low-carb starter of fresh cottage cheese mixed with collard greens.",
+        tags: ["High Fiber", "Low GI"],
+        iconType: "leaf"
+      };
+      main = {
+        name: "Tibs (grilled)",
+        category: "Mains",
+        description: "Lean sautéed beef cubes with onions and jalapeños. Keeps blood glucose stable and protein absorption high.",
+        tags: ["High Protein", "Low GI"],
+        iconType: "meat"
+      };
+      analysis = "To support stable blood sugar, start with Ayib be Gomen (or Buticha if dairy-sensitive) for a low-carb, protein-dense appetizer. For your main, grilled Tibs provides excellent slow-absorption proteins without high glycemic stews.";
+      reminder = "Remember: Limit Injera to 1 piece to maintain optimal glycemic control and avoid sweet Tej or carbohydrate-dense stews.";
+    }
+  }
+
+  if (session.hasHypertension) {
+    if (session.hasDiabetes && session.isPregnant) {
+      main = {
+        name: "Tibs (Well-Done, Un-salted)",
+        category: "Mains",
+        description: "Grilled lean steak bites cooked thoroughly to well-done with zero added salt to respect arterial health.",
+        tags: ["Un-salted", "Well-Done Cooked", "Low GI"],
+        iconType: "meat"
+      };
+      analysis = "Managing pregnancy, diabetes, and blood pressure together requires warm pasteurized starters (Buticha), stable low-GI proteins (Tibs), and requesting completely salt-free preparations.";
+      reminder = "Remember: Request your meals completely salt-free and limit Injera portions strictly.";
+    } else if (session.hasDiabetes) {
+      main = {
+        name: "Tibs (grilled, Un-salted)",
+        category: "Mains",
+        description: "Lean sautéed beef cubes prepared completely without salt. High protein and zero sodium impact.",
+        tags: ["Low Sodium", "High Protein", "Low GI"],
+        iconType: "meat"
+      };
+      analysis = "A dual Diabetic + Hypertension profile requires stable, low-carb proteins like grilled Tibs prepared completely unsalted to maintain both arterial and glycemic goals.";
+      reminder = "Remember: Request zero salt on entrees and limit Injera to one piece to stabilize glucose.";
+    } else if (session.isPregnant) {
+      starter = {
+        name: "Gomen Extra-Mild",
+        category: "Starters",
+        description: "Slow-simmered green collard leaves in virgin olive oil and garlic. Cooked, pasteurized, and unsalted.",
+        tags: ["Low Sodium", "Heart Healthy", "Gestational safe"],
+        iconType: "leaf"
+      };
+      analysis = "Focus on pasteurized, cooked options with minimal sodium. Start with extra-mild Gomen to support arterial elasticity, and ensure all main dishes are cooked thoroughly with minimal salt.";
+      reminder = "Remember: Strictly avoid high-sodium stews, raw meats, and ask for unsalted preparations.";
+    } else {
+      starter = {
+        name: "Gomen Extra-Mild",
+        category: "Starters",
+        description: "Slow-simmered green collard leaves in virgin olive oil and crushed garlic. Absolutely minimal salt added.",
+        tags: ["Low Sodium", "Heart Healthy"],
+        iconType: "leaf"
+      };
+      main = {
+        name: "Kik Alicha (Lentils)",
+        category: "Sides",
+        description: "Mild split-pea broth stew lightly infused with natural turmeric. Unsalted, high potassium.",
+        tags: ["Sodium Free", "High Fiber"],
+        iconType: "soup"
+      };
+      analysis = "Focus on extremely low sodium and high potassium options. Mild split-pea Kik Alicha and garlic-infused Gomen support vascular health and blood pressure targets.";
+      reminder = "Remember: Ask for your meals to be produced completely 'un-salted' to respect arterial goals.";
+    }
   }
 
   // Adjust for any specific allergy fallback overrides
   if (hasDairy) {
-    if (main.name.includes("Butter") || main.name.includes("Kitfo") || main.name.includes("Firfir")) {
+    if (main.name.includes("Butter") || main.name.includes("Kitfo") || main.name.includes("Firfir") || main.name.includes("Wat")) {
       main = {
         name: "Shiro",
         category: "Mains",
         description: "Standard spiced chickpea purees simmered in garlic. Made with canola-vegetable oil, zero butter.",
         tags: ["Dairy Free", "Vegan friendly"],
-        iconType: "soup" as const
+        iconType: "soup"
       };
     }
   }

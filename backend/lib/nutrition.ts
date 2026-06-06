@@ -4,6 +4,9 @@ export function evaluateDish(
   dish: Dish,
   session: Session
 ): { status: 'safe' | 'caution' | 'avoid'; reason: string } {
+  const avoids: string[] = [];
+  const cautions: string[] = [];
+
   // 1. Allergy Rules (Any matching allergen -> Avoid)
   const sessionAllergies = session.allergies
     ? session.allergies.split(',').map((a) => a.trim().toLowerCase())
@@ -13,25 +16,25 @@ export function evaluateDish(
     const dishAllergens = dish.containsAllergens.split(',').map((a) => a.trim().toLowerCase());
     for (const allergen of dishAllergens) {
       if (allergen && sessionAllergies.includes(allergen)) {
-        return { status: 'avoid', reason: `Contains ${allergen.charAt(0).toUpperCase() + allergen.slice(1)}` };
+        avoids.push(`Contains ${allergen.charAt(0).toUpperCase() + allergen.slice(1)}`);
       }
     }
   }
 
   // Double safe guard: if dairy product and dairy selected
   if (dish.isDairyProduct && sessionAllergies.includes('dairy')) {
-    return { status: 'avoid', reason: 'Contains Dairy' };
+    avoids.push('Contains Dairy');
   }
 
   // 2. Pregnancy Rules
   if (session.isPregnant) {
     // Restrict foods flagged as unsafe during pregnancy (e.g., raw food)
     if (dish.isRaw) {
-      return { status: 'avoid', reason: 'Raw meat risk (strictly avoid raw during pregnancy)' };
+      avoids.push('Raw meat risk (strictly avoid raw during pregnancy)');
     }
     // High sodium warning for pregnant
     if (dish.sodiumMg > 800) {
-      return { status: 'caution', reason: 'Elevated sodium level (moderate to limit water retention)' };
+      cautions.push('Elevated sodium level (pregnancy caution)');
     }
   }
 
@@ -39,15 +42,11 @@ export function evaluateDish(
   if (session.hasDiabetes) {
     // Dangerous sugar levels/carbohydrate traps
     if (dish.nameEn.toLowerCase() === 'firfir' || dish.nameEn.toLowerCase().includes('tej')) {
-      return { status: 'avoid', reason: 'Very high glycemic load / dangerous sugar levels' };
-    }
-    // Glycemic Index > 70 -> Avoid
-    if (dish.glycemicIndex > 70) {
-      return { status: 'caution', reason: 'High Glycemic Index (limit portions strictly)' };
-    }
-    // Glycemic Index 56-70 -> Caution
-    if (dish.glycemicIndex >= 56 && dish.glycemicIndex <= 70) {
-      return { status: 'caution', reason: 'Moderate-to-high carb count' };
+      avoids.push('Very high glycemic load / dangerous sugar levels');
+    } else if (dish.glycemicIndex > 70) {
+      cautions.push('High Glycemic Index (limit portions strictly)');
+    } else if (dish.glycemicIndex >= 56 && dish.glycemicIndex <= 70) {
+      cautions.push('Moderate-to-high carb count');
     }
   }
 
@@ -55,12 +54,18 @@ export function evaluateDish(
   if (session.hasHypertension) {
     // Sodium > 800mg -> Avoid (as requested in rule engine)
     if (dish.sodiumMg > 800) {
-      return { status: 'caution', reason: 'High sodium content (limit portion or request low-salt preparation)' };
+      cautions.push('High sodium content (limit portion or request low-salt)');
+    } else if (dish.sodiumMg >= 400 && dish.sodiumMg <= 800) {
+      cautions.push('Moderate sodium content');
     }
-    // Sodium 400-800mg -> Caution
-    if (dish.sodiumMg >= 400 && dish.sodiumMg <= 800) {
-      return { status: 'caution', reason: 'Moderate sodium content' };
-    }
+  }
+
+  // Determine overall status and combined reasons
+  if (avoids.length > 0) {
+    return { status: 'avoid', reason: avoids.join(' & ') };
+  }
+  if (cautions.length > 0) {
+    return { status: 'caution', reason: cautions.join(' & ') };
   }
 
   // 5. Default/Safe Reasons

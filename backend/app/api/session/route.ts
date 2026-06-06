@@ -7,18 +7,16 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { diabetes, hypertension, pregnant, allergies } = body;
 
-    // 1. Session Clean up: delete expired sessions
-    try {
-      await prisma.session.deleteMany({
-        where: {
-          expiresAt: {
-            lt: new Date(),
-          },
+    // 1. Session Clean up: delete expired sessions (asynchronously to prevent blocking response)
+    prisma.session.deleteMany({
+      where: {
+        expiresAt: {
+          lt: new Date(),
         },
-      });
-    } catch (cleanErr) {
+      },
+    }).catch((cleanErr) => {
       console.error('Error during expired sessions cleanup:', cleanErr);
-    }
+    });
 
     // 2. Generate UUID session ID
     const sessionId = crypto.randomUUID();

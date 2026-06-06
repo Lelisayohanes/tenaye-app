@@ -1,9 +1,24 @@
+import 'dotenv/config';
+import dns from 'dns';
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 
+// Force Node.js to prioritize IPv4 DNS records to prevent IPv6 timeouts on local network
+dns.setDefaultResultOrder('ipv4first');
+
+console.log("SEEDING LOG - Current working directory:", process.cwd());
+console.log("SEEDING LOG - DATABASE_URL exists:", !!process.env.DATABASE_URL);
+console.log("SEEDING LOG - DIRECT_DATABASE_URL exists:", !!process.env.DIRECT_DATABASE_URL);
+
+const connectionString = process.env.DATABASE_URL || process.env.DIRECT_DATABASE_URL || 'postgresql://neondb_owner:npg_BsTG2hzLc0Qp@ep-silent-hall-aqnxrly1-pooler.c-8.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require';
+console.log("SEEDING LOG - Connecting using connectionString:", connectionString.replace(/:[^:@]+@/, ":[MASKED_PASSWORD]@"));
+
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5434/tenaye'
+  connectionString,
+  ssl: {
+    rejectUnauthorized: false
+  }
 });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });

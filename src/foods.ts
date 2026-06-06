@@ -176,49 +176,56 @@ export function getFoodStatus(
   conditions: { diabetes: boolean; hbp: boolean; pregnant: boolean },
   selectedAllergies: string[]
 ): { status: 'safe' | 'caution' | 'avoid'; reason: string } {
+  const avoids: string[] = [];
+  const cautions: string[] = [];
+
   // 1. Check Allergies first
   for (const allergen of item.containsAllergens) {
     if (selectedAllergies.includes(allergen)) {
-      return { status: 'avoid', reason: `Contains ${allergen}` };
+      avoids.push(`Contains ${allergen}`);
     }
   }
 
-  // Double safe guards: if dairy product and dairy selected
   if (item.isDairyProduct && selectedAllergies.includes('Dairy')) {
-    return { status: 'avoid', reason: 'Contains Dairy' };
+    avoids.push('Contains Dairy');
   }
 
   // 2. Check Pregnancy rules (raw food is strictly avoided)
-  if (conditions.pregnant && item.isRaw) {
-    return { status: 'avoid', reason: 'Raw meat risk (strictly avoid raw during pregnancy)' };
+  if (conditions.pregnant) {
+    if (item.isRaw) {
+      avoids.push('Raw meat risk (strictly avoid raw during pregnancy)');
+    }
+    if (item.sodium === 'high') {
+      cautions.push('Elevated sodium level (pregnancy caution)');
+    }
   }
 
   // 3. Check Diabetes rules (by order of severity)
   if (conditions.diabetes) {
     if (item.id === 'firfir' || item.id === 'tej') {
-      return { status: 'avoid', reason: 'Very high glycemic load / dangerous sugar levels' };
-    }
-    if (item.glycemicIndex === 'high') {
-      return { status: 'caution', reason: 'High Glycemic Index (limit portions strictly)' };
-    }
-    if (item.carbs === 'high' || item.glycemicIndex === 'moderate') {
-      return { status: 'caution', reason: 'Moderate-to-high carb count' };
+      avoids.push('Very high glycemic load / dangerous sugar levels');
+    } else if (item.glycemicIndex === 'high') {
+      cautions.push('High Glycemic Index (limit portions strictly)');
+    } else if (item.carbs === 'high' || item.glycemicIndex === 'moderate') {
+      cautions.push('Moderate-to-high carb count');
     }
   }
 
   // 4. Check Hypertension/HBP rules (sodium restrictions)
   if (conditions.hbp) {
     if (item.sodium === 'high') {
-      // If it's kitfo or doro wat, it has high sodium, so caution
-      return { status: 'caution', reason: 'High sodium content (limit portion or request low-salt preparation)' };
+      cautions.push('High sodium content (limit portion or request low-salt)');
+    } else if (item.sodium === 'moderate') {
+      cautions.push('Moderate sodium content');
     }
   }
 
-  // 5. Mild precautions or general safety
-  if (conditions.pregnant) {
-    if (item.sodium === 'high') {
-      return { status: 'caution', reason: 'Elevated sodium level (moderate to limit water retention)' };
-    }
+  // Determine overall status and combined reasons
+  if (avoids.length > 0) {
+    return { status: 'avoid', reason: avoids.join(' & ') };
+  }
+  if (cautions.length > 0) {
+    return { status: 'caution', reason: cautions.join(' & ') };
   }
 
   // Default is Safe
